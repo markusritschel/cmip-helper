@@ -19,6 +19,9 @@ import pandas as pd
 from intake.source.utils import reverse_formats
 
 
+__all__ = ['list_elements_match_pattern', 'create_intake_catalog', 'parse_dir', 'slice_picontrol']
+
+
 def list_elements_match_pattern(files, regex):
     """Check a list of strings/files for matching a regular expression"""
     matches = list(map(re.compile(regex).fullmatch, map(str, files)))
