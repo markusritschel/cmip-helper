@@ -1,5 +1,8 @@
 cmip-helper
-==============================
+===========
+[![GitHub license](https://img.shields.io/github/license/markusritschel/cmip-helper)](https://github.com/markusritschel/cmip-helper/blob/master/LICENSE)
+![build](https://github.com/markusritschel/cmip-helper/workflows/build/badge.svg)
+[![codecov](https://codecov.io/gh/markusritschel/cmip-helper/branch/master/graph/badge.svg)](https://codecov.io/gh/markusritschel/cmip-helper)
 
 This package provides various routines to help dealing with CMIP data.
 
