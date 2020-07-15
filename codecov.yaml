@@ -1,2 +1,2 @@
 fixes:
-  - "cmip_helper/::"
+  - "./cmip_helper/::"
