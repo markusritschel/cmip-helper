@@ -10,7 +10,7 @@
 import pytest
 import yaml
 
-from cmip_proc import list_elements_match_pattern
+from cmip_helper.cmip_proc import list_elements_match_pattern
 
 
 def test_file_list_fixture(cmip5_files):
