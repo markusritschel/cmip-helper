@@ -122,7 +122,7 @@ class CMIPparser():
         self.guess_by_file = guess_by
         self._validate()
 
-    @staticmethod
+    # @staticmethod
     def _validate(self):
         if self.version in ['5', '6']:
             return True
