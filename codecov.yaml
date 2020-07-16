@@ -1,2 +1,3 @@
 ignore:
-  - "./*.py"
+  - "setup.py"
+  - "test_environment.py"
