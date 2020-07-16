@@ -40,23 +40,23 @@ def create_intake_catalog(path, version=None, name=None, rules=None):
         name = 'my_catalog'
 
     path = Path(path)
-    cat_file = path / f"{name}.csv.gz"
-    json_file = path / f"{name}.json"
+    cat_file = path/f"{name}.csv.gz"
+    json_file = path/f"{name}.json"
     print("Create {} and {} in {}".format(*map(os.path.basename, [json_file, cat_file]), path))
 
     df = parse_dir(path)
     df.to_csv(cat_file, compression='gzip', index=False)
 
-    attributes = [{"column_name": name, "vocabulary": ""} for name in df.columns if not name=='path']
+    attributes = [{"column_name": name, "vocabulary": ""} for name in df.columns if not name == 'path']
     json_dict = {
-        "esmcat_version":      "0.1.0",
-        "id":                  name,
-        "description":         f"This is an ESM collection for CMIP{version} data",
-        "catalog_file":        cat_file,
-        "attributes":          attributes,
+        "esmcat_version": "0.1.0",
+        "id": name,
+        "description": f"This is an ESM collection for CMIP{version} data",
+        "catalog_file": cat_file,
+        "attributes": attributes,
         "assets": {
             "column_name": "path",
-            "format":      "netcdf"
+            "format": "netcdf"
             },
         "aggregation_control": {
             "variable_column_name": "variable_id",
@@ -66,18 +66,18 @@ def create_intake_catalog(path, version=None, name=None, rules=None):
                 ],
             "aggregations": [
                 {
-                    "type":           "union",
+                    "type": "union",
                     "attribute_name": "variable_id"
                     },
                 {
-                    "type":           "join_existing",
+                    "type": "join_existing",
                     "attribute_name": "time_range",
-                    "options":        {"dim": "time", "coords": "minimal", "compat": "override"}
+                    "options": {"dim": "time", "coords": "minimal", "compat": "override"}
                     },
                 {
-                    "type":           "join_new",
+                    "type": "join_new",
                     "attribute_name": "member_id",
-                    "options":        {"coords": "minimal", "compat": "override"}
+                    "options": {"coords": "minimal", "compat": "override"}
                     }
                 ]
             }
@@ -138,18 +138,18 @@ class CMIPparser():
 
     @property
     def filename_template(self):
-        if self.version=='5':
+        if self.version == '5':
             return '{variable}_{mip_table}_{model}_{experiment}_{ensemble_member}_{temporal_subset}.nc'
-        elif self.version=='6':
+        elif self.version == '6':
             return '{variable_id}_{table_id}_{source_id}_{experiment_id}_{member_id}_{grid_label}_{time_range}.nc'
         else:
             return None
 
     @property
     def gridspec_template(self):
-        if self.version=='5':
+        if self.version == '5':
             return '{variable}_{mip_table}_{model}_{experiment}_{ensemble_member}.nc'
-        elif self.version=='6':
+        elif self.version == '6':
             return '{variable_id}_{table_id}_{source_id}_{experiment_id}_{member_id}_{grid_label}.nc'
         else:
             return None
@@ -159,15 +159,15 @@ class CMIPparser():
         elements = self.guess_by_file.split('_')
         if re.match(r"\d{4,8}-\d{4,8}.nc$", elements[-1]):
             file_type = 'temporal'
-            if len(elements)==6:
+            if len(elements) == 6:
                 self.version = '5'
-            elif len(elements)==7:
+            elif len(elements) == 7:
                 self.version = '6'
         elif re.match(r"r\d+?i\d+?p\d+?.nc$", elements[-1]) or re.match(r"[a-z]{1,2}.nc$", elements[-1]):
             file_type = 'gridspec'
-            if len(elements)==5:
+            if len(elements) == 5:
                 self.version = '5'
-            elif len(elements)==6:
+            elif len(elements) == 6:
                 self.version = '6'
 
         return
