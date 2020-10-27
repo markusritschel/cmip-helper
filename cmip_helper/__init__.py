@@ -10,3 +10,4 @@
 """This package provides routines to help dealing with CMIP data."""
 
 from .cmip_proc import *
+from .helper import weighted_average, average
