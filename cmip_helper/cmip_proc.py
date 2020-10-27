@@ -16,6 +16,7 @@ from pathlib import Path
 from functools import partial
 from itertools import compress
 import pandas as pd
+import subprocess
 from intake.source.utils import reverse_formats
 
 
@@ -30,29 +31,29 @@ def list_elements_match_pattern(files, regex):
     return matched, not_matched
 
 
-def create_intake_catalog(path, version=None, name=None, rules=None):
+def create_intake_catalog(path, cmip_version=None, name=None, rules=None, **kwargs):
     """Creates a pair of two files (a collection JSON file and a catalog CSV.GZ file),
     which can be opened by `intake`"""
-    if (not name) & version:
-        name = f"cmip{version}_catalog"
-    else:
+    if (not name) & (cmip_version is not None):
+        name = f"cmip{cmip_version}_catalog"
+    elif (not name) & (not cmip_version):
         # logging.info("Didn't specify name nor CMIP version")
         name = 'my_catalog'
 
-    path = Path(path)
+    path = Path(path).expanduser()
     cat_file = path/f"{name}.csv.gz"
     json_file = path/f"{name}.json"
     print("Create {} and {} in {}".format(*map(os.path.basename, [json_file, cat_file]), path))
 
-    df = parse_dir(path)
+    df = parse_dir(path, cmip_version=cmip_version, **kwargs)
     df.to_csv(cat_file, compression='gzip', index=False)
 
     attributes = [{"column_name": name, "vocabulary": ""} for name in df.columns if not name == 'path']
     json_dict = {
         "esmcat_version": "0.1.0",
         "id": name,
-        "description": f"This is an ESM collection for CMIP{version} data",
-        "catalog_file": cat_file,
+        "description": f"This is an ESM collection for CMIP{cmip_version} data",
+        "catalog_file": str(cat_file),
         "attributes": attributes,
         "assets": {
             "column_name": "path",
@@ -61,8 +62,10 @@ def create_intake_catalog(path, version=None, name=None, rules=None):
         "aggregation_control": {
             "variable_column_name": "variable_id",
             "groupby_attrs": [
-                "experiment_id",
                 "source_id",
+                "experiment_id",
+                # "table_id",
+                # "grid_label"
                 ],
             "aggregations": [
                 {
@@ -83,29 +86,37 @@ def create_intake_catalog(path, version=None, name=None, rules=None):
             }
         }
 
-    with open(json_file, 'w') as jf:
+    with open(str(json_file), 'w') as jf:
         json.dump(json_dict, jf, indent=2)
 
     print("\nYou can load the catalog with")
     print(f""">>> col_file = "{json_file}"\n>>> intake.open_esm_datastore(col_file)""")
 
-    return json_file
+    return str(json_file)
 
 
-def parse_dir(path, **kwargs):
+def parse_dir(path, depth=12, ext='*.nc', **kwargs):
     """Retrieve all netCDF under a certain path (including sub-directories and parse their names according to a
     given pattern (`file_fmt`). Returns a pd.DataFrame of the parsed elements.
     """
-    path = os.path.expanduser(path)
+    path = Path(path).expanduser()
 
-    files = all_files = glob.glob(os.path.join(path, '**/*.nc'), recursive=True)
+    # files = all_files = path.rglob('*.nc')
+    # files = [x.name for x in all_files]
+    cmd = f"find {path.as_posix()} -maxdepth {depth} -iname '{ext}'"
+    find_res = subprocess.run(cmd, shell=True, capture_output=True)
+    all_files = find_res.stdout.decode('utf-8').split()
+    # files = all_files = glob.glob(os.path.join(path, '**/*.nc'), recursive=True)
     dirs, files = zip(*map(os.path.split, all_files))
-    #     files, ext = zip(*map(os.path.splitext, files))
+    # files, ext = zip(*map(os.path.splitext, files))
 
     # guess version by 1st file
     cmip_version = kwargs.pop('cmip_version', None)
-    parser = CMIPparser(cmip_version, guess_by=files[0])
-    file_fmt = parser.filename_template
+    if 'file_fmt' in kwargs:
+        file_fmt = kwargs.pop('file_fmt')
+    else:
+        parser = CMIPparser(cmip_version, guess_by=all_files[0])
+        file_fmt = parser.filename_template
 
     # TODO: try-except? Or how can you filter out those files that don't match file_fmt?
     # TODO: how to take into account gridspec files and normal temporal files in the same directory?
@@ -139,7 +150,7 @@ class CMIPparser():
     @property
     def filename_template(self):
         if self.version == '5':
-            return '{variable}_{mip_table}_{model}_{experiment}_{ensemble_member}_{temporal_subset}.nc'
+            return '{variable_id}_{table_id}_{source_id}_{experiment_id}_{member_id}_{time_range}.nc'
         elif self.version == '6':
             return '{variable_id}_{table_id}_{source_id}_{experiment_id}_{member_id}_{grid_label}_{time_range}.nc'
         else:
@@ -148,13 +159,13 @@ class CMIPparser():
     @property
     def gridspec_template(self):
         if self.version == '5':
-            return '{variable}_{mip_table}_{model}_{experiment}_{ensemble_member}.nc'
+            return '{variable_id}_{table_id}_{source_id}_{experiment_id}_{member_id}.nc'
         elif self.version == '6':
             return '{variable_id}_{table_id}_{source_id}_{experiment_id}_{member_id}_{grid_label}.nc'
         else:
             return None
 
-    @staticmethod
+    # @staticmethod
     def _guess_version(self):
         elements = self.guess_by_file.split('_')
         if re.match(r"\d{4,8}-\d{4,8}.nc$", elements[-1]):
