@@ -434,7 +434,7 @@ class CMIPparser():
 
 
 @pd.api.extensions.register_dataframe_accessor("ens")
-class EnsembleAccessor:
+class PandasEnsembleAccessor:
     # TODO: create a docstring with Parameters/Returns/Examples
     def __init__(self, pandas_obj):
         # self._validate(pandas_obj)
