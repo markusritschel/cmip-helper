@@ -486,6 +486,68 @@ class PandasEnsembleAccessor:
         return self._df.groupby(self.column_keys[key], axis=1)
 
 
+@xr.register_dataset_accessor("ens")
+class XarrayEnsembleAccessor:
+    """An xarray.Dataset accessor supporting the grouping of ensemble members by model id and similar.
+    The `member` coordinate in the xr.Dataset must have a `key_template` attribute of the form 'source_id.member_id.grid_label',
+    following the structure of the entries of the 'member' coordinate."""
+    xr.set_options(keep_attrs=True)
+
+    def __init__(self, xarray_obj):
+        self._ds = xarray_obj
+        self._validate(xarray_obj)
+        self.init_member_key()
+
+    @property
+    def key_template(self):
+        """Return the key template"""
+        return self._ds.coords['member'].attrs['key_template']
+
+    @staticmethod
+    def _validate(obj):
+        """Test the xarray.Dataset for the existance of the coordinate 'member' and its attribute 'key_template'.
+        This routine is run as soon as the accessor is called."""
+        if not 'member' in obj.coords:
+            raise AttributeError("No coordinate 'member' found in xarray object.")
+        elif not 'key_template' in obj.coords['member'].attrs:
+            logger.warning("No 'key_template' found in attribute list of 'member' coordinate.")
+        return
+
+    def init_member_key(self, **kwargs):
+        """Initialize a helper object (xarray.DataArray) that holds the elements of each member as variables, following the key_template,
+        and the member name itself as coordinate. This serves as a basis for the grouping later."""
+        key_template = kwargs.pop('key_template', self.key_template)
+        sep = kwargs.pop('sep', '.')
+
+        if not sep in key_template:
+            raise ValueError("key_template must contain at least one occurrence of the separator.")
+
+        def _all_keys_equal():
+            len_of_colkeys = [len(x.split(sep)) for x in self._ds.member.values]
+            return len(set(len_of_colkeys)) == 1
+
+        if not _all_keys_equal():
+            raise ValueError("Column keys must show the same pattern. Not all column names have the same number of keys.")
+
+        self.member_keys = pd.DataFrame(pd.Series(self._ds.member.values).str.split(sep, expand=True))
+        self.member_keys.index = self._ds.member.values
+        self.member_keys.index.name = 'member'
+        column_names = key_template.split(sep)
+        if not len(column_names) == len(self.member_keys.columns):
+            raise ValueError("It seems like the key_template does not fit the structure of the member ids in the 'member' coordinate.")
+        self.member_keys.columns = column_names
+        self.member_keys = self.member_keys.to_xarray()
+        return
+
+
+    def groupby(self, key):
+        """Group the xarray.Dataset by a member key. The key is an element of the key_template. For example, if the members
+        have the format 'ACCESS-CM2.r1i1p1f1.gn', then the key_template should be 'source_id.member_id.grid_label'. The dataset
+        can then be grouped, for example, via `ds.ens.groupby('source_id')`."""
+        if self.member_keys is None:
+            raise AttributeError("Ensure that the column key template is initialized using `init_colkeys(key_template)`.")
+        return self._ds.groupby(self.member_keys[key])
+
 
 def slice_picontrol():
     """piControl data are usually not existent as single runs but as one long time series.
