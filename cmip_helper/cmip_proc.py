@@ -496,24 +496,34 @@ class XarrayEnsembleAccessor:
     def __init__(self, xarray_obj):
         self._ds = xarray_obj
         self._validate(xarray_obj)
-        self.init_member_key()
 
     @property
     def key_template(self):
         """Return the key template"""
-        return self._ds.coords['member'].attrs['key_template']
+        try:
+            return self._ds.coords['member'].attrs['key_template']
+        except KeyError:
+            raise KeyError("key_template not set. Make sure the attributes of the 'member' coordinate comprise "
+                           "a 'key_template' value. You can set this via ds.ens.key_template = 'your.template'.")
 
-    @staticmethod
-    def _validate(obj):
+    @key_template.setter
+    def key_template(self, template_string):
+        """Setter method for the key_template. Make sure that the elements inside tge key_template
+        are divided by a dot (.)."""
+        self._ds.coords['member'].attrs['key_template'] = template_string
+
+    def _validate(self, obj):
         """Test the xarray.Dataset for the existance of the coordinate 'member' and its attribute 'key_template'.
         This routine is run as soon as the accessor is called."""
         if not 'member' in obj.coords:
             raise AttributeError("No coordinate 'member' found in xarray object.")
-        elif not 'key_template' in obj.coords['member'].attrs:
+        elif 'key_template' in obj.coords['member'].attrs:
+            self._init_member_key()
+        else:
             logger.warning("No 'key_template' found in attribute list of 'member' coordinate.")
         return
 
-    def init_member_key(self, **kwargs):
+    def _init_member_key(self, **kwargs):
         """Initialize a helper object (xarray.DataArray) that holds the elements of each member as variables, following the key_template,
         and the member name itself as coordinate. This serves as a basis for the grouping later."""
         key_template = kwargs.pop('key_template', self.key_template)
@@ -544,6 +554,7 @@ class XarrayEnsembleAccessor:
         """Group the xarray.Dataset by a member key. The key is an element of the key_template. For example, if the members
         have the format 'ACCESS-CM2.r1i1p1f1.gn', then the key_template should be 'source_id.member_id.grid_label'. The dataset
         can then be grouped, for example, via `ds.ens.groupby('source_id')`."""
+        self._init_member_key()
         if self.member_keys is None:
             raise AttributeError("Ensure that the column key template is initialized using `init_colkeys(key_template)`.")
         return self._ds.groupby(self.member_keys[key])
