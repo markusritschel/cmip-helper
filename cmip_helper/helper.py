@@ -9,9 +9,11 @@
 #
 import xarray as xr
 import numpy as np
+from deprecation import deprecated
 
 
 # https://nordicesmhub.github.io/NEGI-Abisko-2019/training/Example_model_global_arctic_average.html
+
 def weighted_annual_mean(ds):
     """Compute the annual mean of an :class:`xr.Dataset`, thereby considering the different lengths of the months.
     That is, the function weights each month of the year by the number of days it comprises.
@@ -42,6 +44,7 @@ def weighted_annual_mean(ds):
     return ds_sum/ones_out
 
 
+@deprecated
 def weighted_average(xa: xr.DataArray,
                      dim=None,
                      weights: xr.DataArray = None,
