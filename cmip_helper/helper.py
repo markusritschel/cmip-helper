@@ -12,6 +12,36 @@ import numpy as np
 
 
 # https://nordicesmhub.github.io/NEGI-Abisko-2019/training/Example_model_global_arctic_average.html
+def weighted_annual_mean(ds):
+    """Compute the annual mean of an :class:`xr.Dataset`, thereby considering the different lengths of the months.
+    That is, the function weights each month of the year by the number of days it comprises.
+
+    Following https://ncar.github.io/esds/posts/2021/yearly-averages-xarray/
+    """
+    # Determine the number of days in each month
+    days_per_month = ds.time.dt.days_in_month
+
+    # Calculate the weights
+    # In each 4th year, there total amount of days differs compared to other years
+    # Therefore, weights need to be calculated on an annual base
+    weights = days_per_month.groupby("time.year")/days_per_month.groupby("time.year").sum()
+
+    # Make sure the weights in each year add up to 1
+    assert np.allclose(weights.groupby("time.year").sum(xr.ALL_DIMS), 1.0)
+
+    # Setup our masking for nan values
+    ones = xr.where(ds.isnull(), 0.0, 1.0)
+
+    # Calculate the annual values, weighted by days in each month
+    ds_sum = (ds*weights).resample(time="AS").sum(dim="time")
+
+    # Calculate the NaN weights
+    # This gives every NaN in the original data a weight of zero, resulting in a lower weight for affected years
+    ones_out = (ones*weights).resample(time="AS").sum(dim="time")
+
+    return ds_sum/ones_out
+
+
 def weighted_average(xa: xr.DataArray,
                      dim=None,
                      weights: xr.DataArray = None,
